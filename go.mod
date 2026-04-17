@@ -1,0 +1,9 @@
+module github.com/caleb-fringer/imp_lsp
+
+go 1.25.3
+
+require (
+	github.com/caleb-fringer/tree-sitter-imp v0.0.0-20260408053730-40aa646e8e53 // indirect
+	github.com/mattn/go-pointer v0.0.1 // indirect
+	github.com/tree-sitter/go-tree-sitter v0.25.0 // indirect
+)

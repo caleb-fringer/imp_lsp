@@ -1,0 +1,6 @@
+github.com/caleb-fringer/tree-sitter-imp v0.0.0-20260408053730-40aa646e8e53 h1:VFaWLT3SnDbLLf7cg7M40Jgvsb4MPbqnJXs0FD9Rdic=
+github.com/caleb-fringer/tree-sitter-imp v0.0.0-20260408053730-40aa646e8e53/go.mod h1:YnrixnT4LMSK0RgQS+4pMrP5bpFk09kv6CmNfXplqW8=
+github.com/mattn/go-pointer v0.0.1 h1:n+XhsuGeVO6MEAp7xyEukFINEa+Quek5psIR/ylA6o0=
+github.com/mattn/go-pointer v0.0.1/go.mod h1:2zXcozF6qYGgmsG+SeTZz3oAbFLdD3OWqnUbNvJZAlc=
+github.com/tree-sitter/go-tree-sitter v0.25.0 h1:sx6kcg8raRFCvc9BnXglke6axya12krCJF5xJ2sftRU=
+github.com/tree-sitter/go-tree-sitter v0.25.0/go.mod h1:r77ig7BikoZhHrrsjAnv8RqGti5rtSyvDHPzgTPsUuU=
