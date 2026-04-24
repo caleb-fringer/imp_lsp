@@ -24,7 +24,17 @@ type InitializeResult struct {
 }
 
 type ServerCapabilities struct {
+	TextDocumentSync TextDocumentSyncKind `json:"textDocumentSync"`
 }
+
+type TextDocumentSyncKind int
+
+// TextDocumentSyncKind values
+const (
+	None = iota
+	Full
+	Incremental
+)
 
 type ServerInfo struct {
 	Name    string `json:"name"`
@@ -38,7 +48,9 @@ func NewInitializeResponse(id int) InitializeResponse {
 			ID:      &id,
 		},
 		Result: InitializeResult{
-			Capabilities: ServerCapabilities{},
+			Capabilities: ServerCapabilities{
+				TextDocumentSync: Full,
+			},
 			ServerInfo: ServerInfo{
 				Name:    "imp_lsp",
 				Version: "v0.0.1",
