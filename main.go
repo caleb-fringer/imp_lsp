@@ -51,7 +51,7 @@ func handleMessage(logger *log.Logger, method string, contents []byte) {
 			return
 		}
 		log.Printf("Connected to client: %s %s\n", request.Params.ClientInfo.Name, request.Params.ClientInfo.Version)
-		message := lsp.NewInitializeResponse(request.ID)
+		message := lsp.NewInitializeResponse(request.ID, lsp.Incremental)
 		response := rpc.EncodeMessage(message)
 		os.Stdout.WriteString(response)
 		logger.Println("Replied! :)")

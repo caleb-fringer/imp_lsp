@@ -41,7 +41,7 @@ type ServerInfo struct {
 	Version string `json:"version"`
 }
 
-func NewInitializeResponse(id int) InitializeResponse {
+func NewInitializeResponse(id int, sync TextDocumentSyncKind) InitializeResponse {
 	return InitializeResponse{
 		Response: Response{
 			JsonRPC: "2.0",
@@ -49,7 +49,7 @@ func NewInitializeResponse(id int) InitializeResponse {
 		},
 		Result: InitializeResult{
 			Capabilities: ServerCapabilities{
-				TextDocumentSync: Full,
+				TextDocumentSync: sync,
 			},
 			ServerInfo: ServerInfo{
 				Name:    "imp_lsp",
