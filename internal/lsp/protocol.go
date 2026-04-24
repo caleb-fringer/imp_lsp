@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"regexp"
 	"strconv"
 	"strings"
 )
@@ -32,30 +31,34 @@ func (d *Decoder) Decode() (*Message, error) {
 	msg := &Message{}
 
 	// Phase 1: Resync and find Content-Length
-	foundHeader := false
-	for !foundHeader {
+	for {
 		line, err := d.br.ReadString('\n')
+		// EOF found or other error
 		if err != nil {
 			return nil, err
 		}
 
 		// A malformed message's unread body might precede the start of the next
-		// valid message on the exact same line. Look for the signature anywhere
-		// in the current line.
-		headerRegexp := regexp.MustCompile(`Content-Length: (\d+)\r?`)
-		matches := headerRegexp.FindStringSubmatch(line)
+		// valid message on the exact same line. Look for the signature anywhere.
+		const prefix = "Content-Length: "
+		idx := strings.Index(line, prefix)
 
-		// Malformed or missing Content-Header, continue parsing next line
-		if len(matches) != 2 {
-			continue
-		}
+		if idx != -1 {
+			// Extract the substring immediately after "Content-Length: "
+			start := idx + len(prefix)
 
-		length, err := strconv.Atoi(matches[1])
-		if err != nil {
-			return nil, fmt.Errorf("error parsing Content-Length as int: %v", err)
+			// TrimSpace automatically cleans up the \r\n, \n, or any accidental spaces
+			numStr := strings.TrimSpace(line[start:])
+
+			length, err := strconv.Atoi(numStr)
+			// Header not found, continue parsing from the next line
+			if err != nil {
+				continue
+			}
+
+			msg.ContentLength = uint(length)
+			break
 		}
-		msg.ContentLength = uint(length)
-		foundHeader = true
 	}
 
 	// Phase 2: Parse optional headers and find the empty \r\n line
@@ -71,8 +74,8 @@ func (d *Decoder) Decode() (*Message, error) {
 		}
 
 		// Optional Content-Type header
-		if strings.HasPrefix(line, "Content-Type: ") && strings.HasSuffix(line, "\r\n") {
-			msg.ContentType = line[len("Content-Type: ") : len(line)-2]
+		if strings.HasPrefix(line, "Content-Type: ") {
+			msg.ContentType = strings.TrimSpace(line[len("Content-Type: "):])
 		} else {
 			// Reject the message if we encounter unexpected or malformed headers
 			return nil, fmt.Errorf("unexpected or malformed header line: %q", line)
