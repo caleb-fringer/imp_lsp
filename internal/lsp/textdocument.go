@@ -52,7 +52,7 @@ type DidChangeTextDocumentParams struct {
 }
 
 type TextDocumentChangeEvent struct {
-	Range Range  `json:"range"`
+	Range *Range `json:"range"`
 	Text  string `json:"text"`
 }
 
