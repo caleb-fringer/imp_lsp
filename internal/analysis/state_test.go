@@ -50,7 +50,7 @@ func TestOpenDocument(t *testing.T) {
 		t.Fatalf("Failed to open document: %v\n", err)
 	}
 
-	tree := state.documents[document]
+	tree := state.documents[uri(document.URI)].tree
 	if tree == nil {
 		t.Fatal("Document has no parsed syntax tree in State.documents map.")
 	}

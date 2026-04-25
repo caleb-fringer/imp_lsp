@@ -9,8 +9,14 @@ import (
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
+type uri string
+type document struct {
+	*lsp.TextDocumentItem
+	tree *tree_sitter.Tree
+}
+
 type ServerState struct {
-	documents map[*lsp.TextDocumentItem]*tree_sitter.Tree
+	documents map[uri]*document
 	parser    *tree_sitter.Parser
 }
 
@@ -24,15 +30,15 @@ func NewState() (*ServerState, error) {
 	}
 
 	return &ServerState{
-		documents: make(map[*lsp.TextDocumentItem]*tree_sitter.Tree),
+		documents: make(map[uri]*document),
 		parser:    parser,
 	}, nil
 }
 
 // Close open tree_sitter.Tree's and tree_sitter.Parser
 func (s *ServerState) Close() {
-	for _, tree := range s.documents {
-		tree.Close()
+	for _, doc := range s.documents {
+		doc.tree.Close()
 	}
 	s.parser.Close()
 }
@@ -40,18 +46,21 @@ func (s *ServerState) Close() {
 // Add the provided TextDocumentItem to the state of opened documents, and
 // parse its contents.
 // Returns an error if the the document has already been opened.
-func (s *ServerState) OpenDocument(document *lsp.TextDocumentItem) error {
+func (s *ServerState) OpenDocument(textDocItem *lsp.TextDocumentItem) error {
 	// Strip off the protocol prefix
-	filePath, found := strings.CutPrefix(document.URI, "file://")
+	filePath, found := strings.CutPrefix(textDocItem.URI, "file://")
 	if !found {
-		filePath = document.URI
+		filePath = textDocItem.URI
 	}
 
-	if _, exists := s.documents[document]; exists {
+	if _, exists := s.documents[uri(textDocItem.URI)]; exists {
 		return fmt.Errorf("Document %s has already been opened. Clients should only open a document once.\n", filePath)
 	}
 
 	// Parse the document and add the CST to the state.
-	s.documents[document] = s.parser.Parse([]byte(document.Text), nil)
+	s.documents[uri(textDocItem.URI)] = &document{
+		textDocItem,
+		s.parser.Parse([]byte(textDocItem.Text), nil),
+	}
 	return nil
 }
