@@ -51,17 +51,17 @@ func handleMessage(logger *log.Logger, method string, contents []byte) {
 			return
 		}
 		log.Printf("Connected to client: %s %s\n", request.Params.ClientInfo.Name, request.Params.ClientInfo.Version)
-		message := lsp.NewInitializeResponse(request.ID, lsp.Incremental)
+		message := lsp.NewInitializeResponse(request.ID, lsp.Full)
 		response := rpc.EncodeMessage(message)
 		os.Stdout.WriteString(response)
 		logger.Println("Replied! :)")
 	case "textDocument/didOpen":
-		var request lsp.DidOpenTextDocumentNotification
-		err := json.Unmarshal(contents, &request)
+		var notification lsp.DidOpenTextDocumentNotification
+		err := json.Unmarshal(contents, &notification)
 		if err != nil {
 			logger.Printf("Error unmarshalling DidOpenTextDocumentNotification: %v\n", err)
 			return
 		}
-		logger.Printf("Opened: %s\n", request.Params.TextDocument.URI)
+		logger.Printf("Opened: %s\n", notification.Params.TextDocument.URI)
 	}
 }

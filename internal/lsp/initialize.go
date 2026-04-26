@@ -42,6 +42,9 @@ type ServerInfo struct {
 }
 
 func NewInitializeResponse(id int, sync TextDocumentSyncKind) InitializeResponse {
+	if sync == Incremental {
+		panic("Incremental syncing is not implemented!")
+	}
 	return InitializeResponse{
 		Response: Response{
 			JsonRPC: "2.0",

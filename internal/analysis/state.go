@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -11,6 +12,7 @@ import (
 
 type uri string
 type document struct {
+	// TODO: Probably should refactor this to not depend on lsp.TextDocumentItem
 	*lsp.TextDocumentItem
 	tree *tree_sitter.Tree
 }
@@ -43,6 +45,7 @@ func (s *ServerState) Close() {
 	s.parser.Close()
 }
 
+// TODO: Probably should refactor this to not depend on lsp.TextDocumentItem
 // Add the provided TextDocumentItem to the state of opened documents, and
 // parse its contents.
 // Returns an error if the the document has already been opened.
@@ -61,6 +64,57 @@ func (s *ServerState) OpenDocument(textDocItem *lsp.TextDocumentItem) error {
 	s.documents[uri(textDocItem.URI)] = &document{
 		textDocItem,
 		s.parser.Parse([]byte(textDocItem.Text), nil),
+	}
+	return nil
+}
+
+// WARNING: Incremental document synchronization is not yet supported, although
+// the following method documentation indicates that they are. This documentation
+// reflects the future API which will support incremental updates.
+//
+// TODO: Refactor to not edepend on lsp.DidChangeTextDocumentNotification
+//
+// Handle a DidChangeTextDocumentNotification by editing the associated
+// document's Tree and re-parsing it.
+// Returns an error when:
+//   - The document is not in the ServerState (has not been opened).
+//   - The changeEvent's version is behind the server's version.
+//   - The changeEvent's version is not immediately succeeding the server's
+//     version, and incremental syncing has been selected (missing intermediate
+//     updates).
+//   - The new changes could not be parsed.
+func (s *ServerState) EditDocument(changeEvent *lsp.DidChangeTextDocumentNotification) error {
+	eventUri := changeEvent.Params.TextDocument.URI
+	eventVersion := changeEvent.Params.TextDocument.Version
+	doc, exists := s.documents[uri(eventUri)]
+	if !exists {
+		return fmt.Errorf("Document %s was not found; are you sure you opened it?\n", eventUri)
+	}
+
+	// TODO: Handle the case where we use incremental synchronization and the
+	// changeEvent's version is more than 1 + the server's version (missing
+	// intermediate updates).
+	if eventVersion <= doc.Version {
+		return fmt.Errorf("Document %s provided is older than the ServerState's current version:\n"+
+			"\tProvided version: %v\n"+
+			"\tcurrent version: %v\n",
+			eventUri,
+			eventVersion,
+			doc.Version,
+		)
+	}
+
+	changes := changeEvent.Params.ContentChanges
+	for _, change := range changes {
+		// Range field is only present when incremental syncing is used.
+		if change.Range != nil {
+			return errors.New("Incremental syncing is not implemented.")
+		}
+		// Delete and overwrite the previous tree w/ the new document.
+		doc.Version = eventVersion
+		doc.Text = change.Text
+		doc.tree.Close()
+		doc.tree = s.parser.Parse([]byte(change.Text), nil)
 	}
 	return nil
 }
