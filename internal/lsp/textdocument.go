@@ -65,3 +65,21 @@ type Position struct {
 	Line      uint `json:"line"`
 	Character uint `json:"character"`
 }
+
+func NewDidChangeNotification(uri string, version int, contents string) *DidChangeTextDocumentNotification {
+	return &DidChangeTextDocumentNotification{
+		Notification: Notification{
+			JsonRPC: "2.0",
+			Method:  "textDocument/didChange",
+		},
+		Params: DidChangeTextDocumentParams{
+			TextDocument: VersionedTextDocumentIdentifier{
+				TextDocumentIdentifier: TextDocumentIdentifier{URI: uri},
+				Version:                version,
+			},
+			ContentChanges: []TextDocumentChangeEvent{
+				{Text: contents},
+			},
+		},
+	}
+}
