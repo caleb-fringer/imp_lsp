@@ -19,9 +19,11 @@ type document struct {
 }
 
 type ServerState struct {
-	documents map[uri]*document
-	parser    *tree_sitter.Parser
-	logger    *log.Logger
+	documents         map[uri]*document
+	parser            *tree_sitter.Parser
+	queryCursor       *tree_sitter.QueryCursor
+	diagnosticQueries []diagnosticQuery
+	logger            *log.Logger
 }
 
 // Create a new State object
@@ -33,10 +35,14 @@ func NewState(logger *log.Logger) (*ServerState, error) {
 		return nil, fmt.Errorf("Failed to set parser's language: %v", err)
 	}
 
+	queryCursor := tree_sitter.NewQueryCursor()
+
 	return &ServerState{
-		documents: make(map[uri]*document),
-		parser:    parser,
-		logger:    logger,
+		documents:         make(map[uri]*document),
+		parser:            parser,
+		queryCursor:       queryCursor,
+		diagnosticQueries: make([]diagnosticQuery, 0),
+		logger:            logger,
 	}, nil
 }
 
@@ -46,6 +52,7 @@ func (s *ServerState) Close() {
 		doc.tree.Close()
 	}
 	s.parser.Close()
+	s.queryCursor.Close()
 }
 
 // TODO: Probably should refactor this to not depend on lsp.TextDocumentItem
@@ -121,6 +128,8 @@ func (s *ServerState) EditDocument(changeEvent *lsp.DidChangeTextDocumentNotific
 		doc.tree.Close()
 		doc.tree = s.parser.Parse([]byte(change.Text), nil)
 	}
+
+	diagnostics, err = s.collectDiagnostics(uri(doc.URI))
 
 	return diagnostics, nil
 }

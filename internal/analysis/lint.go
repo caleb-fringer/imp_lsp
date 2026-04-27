@@ -3,13 +3,14 @@ package analysis
 import (
 	"fmt"
 
+	"github.com/caleb-fringer/imp_lsp/internal/lsp"
 	tree_sitter_imp "github.com/caleb-fringer/tree-sitter-imp/bindings/go"
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
 type Identifier string
 
-func UnusedVariables(root *tree_sitter.Tree, sourceCode []byte) (map[Identifier]tree_sitter.Node, error) {
+func unusedVariables(root *tree_sitter.Tree, sourceCode []byte) (map[Identifier]tree_sitter.Node, error) {
 	declarations_query, err := tree_sitter.NewQuery(
 		tree_sitter.NewLanguage(tree_sitter_imp.Language()),
 		`(assignment 
@@ -45,4 +46,40 @@ func UnusedVariables(root *tree_sitter.Tree, sourceCode []byte) (map[Identifier]
 		delete(unused_identifiers, Identifier(id))
 	}
 	return unused_identifiers, nil
+}
+
+// An abstraction over tree_sitter queries which generate diagnostics.
+// A diagnosticQuery may consist of many subqueries, but these are
+// abstracted away to make collecting diagnostics easy.
+type diagnosticQuery interface {
+	getName() string
+	construct() error
+	execute(cursor *tree_sitter.QueryCursor) error
+	getDiagnostics() []lsp.Diagnostic
+	close()
+}
+
+func (s *ServerState) collectDiagnostics(document uri) ([]lsp.Diagnostic, error) {
+	var result []lsp.Diagnostic
+	for _, query := range s.diagnosticQueries {
+		err := query.construct()
+		if err != nil {
+			s.logger.Printf("Error constructing query %v: %v\n", query.getName(), err)
+			continue
+		}
+		// TODO: Maybe this should be handled by server.Close()?
+		defer query.close()
+
+		err = query.execute(s.queryCursor)
+		if err != nil {
+			s.logger.Printf("Error executing query %v: %v\n", query.getName(), err)
+			continue
+		}
+
+		// If the query executed successfully, I think this should be fine to
+		// not return an error
+		diagnostics := query.getDiagnostics()
+		result = append(result, diagnostics...)
+	}
+	return result, nil
 }
