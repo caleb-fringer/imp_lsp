@@ -2,7 +2,7 @@ package lsp
 
 type Diagnostic struct {
 	Range              Range                          `json:"range"`
-	Severity           *DiagnosticSeverity            `json:"severity"`
+	Severity           DiagnosticSeverity             `json:"severity"`
 	Code               *int                           `json:"code"`
 	CodeDescription    *CodeDescription               `json:"codeDescription"`
 	Source             string                         `json:"source"`
@@ -74,7 +74,7 @@ type PublishDiagnosticsParams struct {
 	Diagnostics []Diagnostic `json:"diagnostics"`
 }
 
-func NewDiagnostic(srcRange Range, severity *DiagnosticSeverity, source string, message string) *Diagnostic {
+func NewDiagnostic(srcRange Range, severity DiagnosticSeverity, source string, message string) *Diagnostic {
 	return &Diagnostic{
 		Range:    srcRange,
 		Severity: severity,

@@ -76,6 +76,27 @@ func handleMessage(logger *log.Logger, method string, contents []byte, state *an
 			logger.Printf("Error opening document: %v\n", err)
 		}
 
+		// Create a DUMMY diagnostic for testing
+		diagnostic := lsp.Diagnostic{
+			Range: lsp.Range{
+				Start: lsp.Position{
+					Line:      0,
+					Character: 0,
+				},
+				End: lsp.Position{
+					Line:      0,
+					Character: 1,
+				},
+			},
+			Severity: lsp.Information,
+			Source:   "imp_lsp",
+			Message:  "Good Job! :)",
+		}
+		diagnosticsNotification := lsp.NewPublishDiagnosticsNotification([]lsp.Diagnostic{diagnostic}, notification.Params.TextDocument.URI, 1)
+		response := rpc.EncodeMessage(diagnosticsNotification)
+		logger.Printf("Writing the following diagnostics:\n\t%v\n", notification)
+		os.Stdout.WriteString(response)
+
 	case "textDocument/didChange":
 		// Update state of document
 		var notification lsp.DidChangeTextDocumentNotification
