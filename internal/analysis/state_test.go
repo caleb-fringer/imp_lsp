@@ -48,7 +48,7 @@ func TestOpenDocument(t *testing.T) {
 	}
 	defer state.Close()
 
-	err = state.OpenDocument(testDocument)
+	_, err = state.OpenDocument(testDocument)
 	if err != nil {
 		t.Fatalf("Failed to open document: %v\n", err)
 	}
@@ -71,7 +71,7 @@ func TestEditDocument(t *testing.T) {
 	}
 	defer state.Close()
 
-	err = state.OpenDocument(testDocument)
+	_, err = state.OpenDocument(testDocument)
 	if err != nil {
 		t.Fatalf("Failed to open document: %v\n", err)
 	}
@@ -104,7 +104,7 @@ func TestEditDocument(t *testing.T) {
 	}
 
 	// After this point, the previous tree pointers are invalid.
-	if err := state.EditDocument(changeNotification); err != nil {
+	if _, err := state.EditDocument(changeNotification); err != nil {
 		t.Fatalf("Error editing document: %v", err)
 	}
 	new_tree := state.documents[uri(testDocument.URI)].tree

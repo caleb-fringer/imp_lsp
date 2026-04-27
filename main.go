@@ -71,7 +71,7 @@ func handleMessage(logger *log.Logger, method string, contents []byte, state *an
 		}
 		logger.Printf("Opened: %s\n", notification.Params.TextDocument.URI)
 		// Parse the document
-		err = state.OpenDocument(&notification.Params.TextDocument)
+		_, err = state.OpenDocument(&notification.Params.TextDocument)
 		if err != nil {
 			logger.Printf("Error opening document: %v\n", err)
 		}
@@ -106,7 +106,7 @@ func handleMessage(logger *log.Logger, method string, contents []byte, state *an
 			return
 		}
 		logger.Printf("Edited: %s\n", notification.Params.TextDocument.URI)
-		err = state.EditDocument(&notification)
+		_, err = state.EditDocument(&notification)
 		if err != nil {
 			logger.Printf("Error editing document: %v\n", err)
 		}

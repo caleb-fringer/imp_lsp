@@ -47,9 +47,10 @@ func (s *ServerState) Close() {
 
 // TODO: Probably should refactor this to not depend on lsp.TextDocumentItem
 // Add the provided TextDocumentItem to the state of opened documents, and
-// parse its contents.
+// parse its contents. Returns diagnostics resulting from running the linter
+// on the newly parsed CST.
 // Returns an error if the the document has already been opened.
-func (s *ServerState) OpenDocument(textDocItem *lsp.TextDocumentItem) error {
+func (s *ServerState) OpenDocument(textDocItem *lsp.TextDocumentItem) (diagnostics []lsp.Diagnostic, err error) {
 	// Strip off the protocol prefix
 	filePath, found := strings.CutPrefix(textDocItem.URI, "file://")
 	if !found {
@@ -57,7 +58,7 @@ func (s *ServerState) OpenDocument(textDocItem *lsp.TextDocumentItem) error {
 	}
 
 	if _, exists := s.documents[uri(textDocItem.URI)]; exists {
-		return fmt.Errorf("Document %s has already been opened. Clients should only open a document once.\n", filePath)
+		return nil, fmt.Errorf("Document %s has already been opened. Clients should only open a document once.\n", filePath)
 	}
 
 	// Parse the document and add the CST to the state.
@@ -65,7 +66,7 @@ func (s *ServerState) OpenDocument(textDocItem *lsp.TextDocumentItem) error {
 		textDocItem,
 		s.parser.Parse([]byte(textDocItem.Text), nil),
 	}
-	return nil
+	return diagnostics, nil
 }
 
 // WARNING: Incremental document synchronization is not yet supported, although
@@ -75,7 +76,8 @@ func (s *ServerState) OpenDocument(textDocItem *lsp.TextDocumentItem) error {
 // TODO: Refactor to not edepend on lsp.DidChangeTextDocumentNotification
 //
 // Handle a DidChangeTextDocumentNotification by editing the associated
-// document's Tree and re-parsing it.
+// document's Tree and re-parsing it. Returns diagnostics resulting from
+// running the linter on the newly parsed CST.
 // Returns an error when:
 //   - The document is not in the ServerState (has not been opened).
 //   - The changeEvent's version is behind the server's version.
@@ -83,19 +85,19 @@ func (s *ServerState) OpenDocument(textDocItem *lsp.TextDocumentItem) error {
 //     version, and incremental syncing has been selected (missing intermediate
 //     updates).
 //   - The new changes could not be parsed.
-func (s *ServerState) EditDocument(changeEvent *lsp.DidChangeTextDocumentNotification) error {
+func (s *ServerState) EditDocument(changeEvent *lsp.DidChangeTextDocumentNotification) (diagnostics []lsp.Diagnostic, err error) {
 	eventUri := changeEvent.Params.TextDocument.URI
 	eventVersion := changeEvent.Params.TextDocument.Version
 	doc, exists := s.documents[uri(eventUri)]
 	if !exists {
-		return fmt.Errorf("Document %s was not found; are you sure you opened it?\n", eventUri)
+		return nil, fmt.Errorf("Document %s was not found; are you sure you opened it?\n", eventUri)
 	}
 
 	// TODO: Handle the case where we use incremental synchronization and the
 	// changeEvent's version is more than 1 + the server's version (missing
 	// intermediate updates).
 	if eventVersion <= doc.Version {
-		return fmt.Errorf("Document %s provided is older than the ServerState's current version:\n"+
+		return nil, fmt.Errorf("Document %s provided is older than the ServerState's current version:\n"+
 			"\tProvided version: %v\n"+
 			"\tcurrent version: %v\n",
 			eventUri,
@@ -108,7 +110,7 @@ func (s *ServerState) EditDocument(changeEvent *lsp.DidChangeTextDocumentNotific
 	for _, change := range changes {
 		// Range field is only present when incremental syncing is used.
 		if change.Range != nil {
-			return errors.New("Incremental syncing is not implemented.")
+			return nil, errors.New("Incremental syncing is not implemented.")
 		}
 		// Delete and overwrite the previous tree w/ the new document.
 		doc.Version = eventVersion
@@ -116,5 +118,6 @@ func (s *ServerState) EditDocument(changeEvent *lsp.DidChangeTextDocumentNotific
 		doc.tree.Close()
 		doc.tree = s.parser.Parse([]byte(change.Text), nil)
 	}
-	return nil
+
+	return diagnostics, nil
 }
