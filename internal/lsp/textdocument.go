@@ -66,6 +66,11 @@ type Position struct {
 	Character uint `json:"character"`
 }
 
+type Location struct {
+	URI   string `json:"uri"`
+	Range Range  `json:"range"`
+}
+
 func NewDidChangeNotification(uri string, version int, contents string) *DidChangeTextDocumentNotification {
 	return &DidChangeTextDocumentNotification{
 		Notification: Notification{
