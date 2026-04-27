@@ -3,6 +3,7 @@ package analysis
 import (
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/caleb-fringer/imp_lsp/internal/lsp"
@@ -20,10 +21,11 @@ type document struct {
 type ServerState struct {
 	documents map[uri]*document
 	parser    *tree_sitter.Parser
+	logger    *log.Logger
 }
 
 // Create a new State object
-func NewState() (*ServerState, error) {
+func NewState(logger *log.Logger) (*ServerState, error) {
 	parser := tree_sitter.NewParser()
 	language := tree_sitter.NewLanguage(tree_sitter_imp.Language())
 	err := parser.SetLanguage(language)
@@ -34,10 +36,11 @@ func NewState() (*ServerState, error) {
 	return &ServerState{
 		documents: make(map[uri]*document),
 		parser:    parser,
+		logger:    logger,
 	}, nil
 }
 
-// Close open tree_sitter.Tree's and tree_sitter.Parser
+// Close all tree_sitter & other resources.
 func (s *ServerState) Close() {
 	for _, doc := range s.documents {
 		doc.tree.Close()

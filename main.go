@@ -18,7 +18,7 @@ func main() {
 	}
 	logger.Println("Hi :)")
 
-	serverState, err := analysis.NewState()
+	serverState, err := analysis.NewState(logger)
 	if err != nil {
 		log.Fatalf("Couldnt initialize server state: %v", err)
 	}

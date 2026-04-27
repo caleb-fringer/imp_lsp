@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"log"
 	"testing"
 
 	"github.com/caleb-fringer/imp_lsp/internal/lsp"
@@ -24,7 +25,7 @@ var testDocument = &lsp.TextDocumentItem{
 var changeNotification = lsp.NewDidChangeNotification(testDocument.URI, testDocument.Version+1, "z"+testDocument.Text[1:])
 
 func TestNewState(t *testing.T) {
-	state, err := NewState()
+	state, err := NewState(log.Default())
 	if err != nil {
 		t.Errorf("Failed to construct State: %v\n", err)
 	}
@@ -42,7 +43,7 @@ func TestNewState(t *testing.T) {
 }
 
 func TestOpenDocument(t *testing.T) {
-	state, err := NewState()
+	state, err := NewState(log.Default())
 	if err != nil {
 		t.Errorf("Failed to construct State: %v\n", err)
 	}
@@ -65,7 +66,7 @@ func TestOpenDocument(t *testing.T) {
 }
 
 func TestEditDocument(t *testing.T) {
-	state, err := NewState()
+	state, err := NewState(log.Default())
 	if err != nil {
 		t.Errorf("Failed to construct State: %v\n", err)
 	}
