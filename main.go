@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/caleb-fringer/imp_lsp/internal/analysis"
 	"github.com/caleb-fringer/imp_lsp/internal/lsp"
 	"github.com/caleb-fringer/imp_lsp/internal/rpc"
 )
@@ -17,6 +18,11 @@ func main() {
 	}
 	logger.Println("Hi :)")
 
+	serverState, err := analysis.NewState()
+	if err != nil {
+		log.Fatalf("Couldnt initialize server state: %v", err)
+	}
+
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Split(rpc.Split)
 
@@ -27,7 +33,7 @@ func main() {
 			logger.Printf("Error decoding message: %v\n", err)
 			continue
 		}
-		handleMessage(logger, method, contents)
+		handleMessage(logger, method, contents, serverState)
 	}
 }
 
@@ -40,7 +46,7 @@ func getLogger(filename string) (*log.Logger, error) {
 	return log.New(logfile, "[imp_lsp] ", log.Ldate|log.Ltime|log.Lshortfile), nil
 }
 
-func handleMessage(logger *log.Logger, method string, contents []byte) {
+func handleMessage(logger *log.Logger, method string, contents []byte, state *analysis.ServerState) {
 	logger.Printf("Received %s message: %s\n", method, contents)
 	switch method {
 	case "initialize":
@@ -55,6 +61,7 @@ func handleMessage(logger *log.Logger, method string, contents []byte) {
 		response := rpc.EncodeMessage(message)
 		os.Stdout.WriteString(response)
 		logger.Println("Replied! :)")
+
 	case "textDocument/didOpen":
 		var notification lsp.DidOpenTextDocumentNotification
 		err := json.Unmarshal(contents, &notification)
@@ -63,5 +70,25 @@ func handleMessage(logger *log.Logger, method string, contents []byte) {
 			return
 		}
 		logger.Printf("Opened: %s\n", notification.Params.TextDocument.URI)
+		// Parse the document
+		err = state.OpenDocument(&notification.Params.TextDocument)
+		if err != nil {
+			logger.Printf("Error opening document: %v\n", err)
+		}
+
+	case "textDocument/didChange":
+		// Update state of document
+		var notification lsp.DidChangeTextDocumentNotification
+		err := json.Unmarshal(contents, &notification)
+		if err != nil {
+			logger.Printf("Error unmarshalling DidChangeTextDocumentNotification: %v\n", err)
+			return
+		}
+		logger.Printf("Edited: %s\n", notification.Params.TextDocument.URI)
+		err = state.EditDocument(&notification)
+		if err != nil {
+			logger.Printf("Error editing document: %v\n", err)
+		}
+		// TODO: Run new diagnostics...
 	}
 }
