@@ -6,7 +6,7 @@ type InitializeRequest struct {
 }
 
 type InitializeRequestParams struct {
-	ClientInfo         *ClientInfo        `json:"clientInfo"`
+	ClientInfo         *ClientInfo        `json:"clientInfo,omitempty"`
 	ClientCapabilities ClientCapabilities `json:"capabilities"`
 }
 
@@ -21,7 +21,7 @@ type ClientCapabilities struct {
 	 *
 	 * @since 3.16.0
 	 */
-	General *General `json:"general"`
+	General *General `json:"general,omitempty"`
 }
 
 type General struct {
@@ -45,7 +45,7 @@ type General struct {
 	 *
 	 * @since 3.17.0
 	 */
-	PositionEncodings []PositionEncodingKind `json:"positionEncodings"`
+	PositionEncodings []PositionEncodingKind `json:"positionEncodings,omitempty"`
 }
 
 type PositionEncodingKind string
@@ -67,7 +67,8 @@ type InitializeResult struct {
 }
 
 type ServerCapabilities struct {
-	TextDocumentSync TextDocumentSyncKind `json:"textDocumentSync"`
+	PositionEncodingKind *PositionEncodingKind `json:"positionEncoding,omitempty"`
+	TextDocumentSync     *TextDocumentSyncKind `json:"textDocumentSync,omitempty"`
 }
 
 type TextDocumentSyncKind int
@@ -88,6 +89,10 @@ func NewInitializeResponse(id int, sync TextDocumentSyncKind) InitializeResponse
 	if sync == Incremental {
 		panic("Incremental syncing is not implemented!")
 	}
+
+	// Hacky thing to allow me to take a pointer of a constant.
+	encoding := UTF8
+
 	return InitializeResponse{
 		Response: Response{
 			JsonRPC: "2.0",
@@ -95,7 +100,8 @@ func NewInitializeResponse(id int, sync TextDocumentSyncKind) InitializeResponse
 		},
 		Result: InitializeResult{
 			Capabilities: ServerCapabilities{
-				TextDocumentSync: sync,
+				PositionEncodingKind: &encoding,
+				TextDocumentSync:     &sync,
 			},
 			ServerInfo: ServerInfo{
 				Name:    "imp_lsp",
