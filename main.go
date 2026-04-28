@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"slices"
 
 	"github.com/caleb-fringer/imp_lsp/internal/analysis"
 	"github.com/caleb-fringer/imp_lsp/internal/lsp"
@@ -56,6 +57,17 @@ func handleMessage(logger *log.Logger, method string, contents []byte, state *an
 			logger.Printf("Error unmarshalling InitializeRequest: %v\n", err)
 			return
 		}
+
+		supportedEncodings := request.Params.ClientCapabilities.General.PositionEncodings
+
+		if !slices.Contains(supportedEncodings, lsp.UTF8) {
+			logger.Printf("LSP client does not support UTF-8 encoding, and I haven't implemented adapting line/column offset calculations from UTF-16!")
+			errorMsg := lsp.NewErrorResponse(request.ID, lsp.RequestFailed, "Only UTF-8 encoding is supported, as calculating line & byte offsets from UTF-16 is hard :c")
+			response := rpc.EncodeMessage(errorMsg)
+			os.Stdout.WriteString(response)
+			return
+		}
+
 		log.Printf("Connected to client: %s %s\n", request.Params.ClientInfo.Name, request.Params.ClientInfo.Version)
 		message := lsp.NewInitializeResponse(request.ID, lsp.Full)
 		response := rpc.EncodeMessage(message)
