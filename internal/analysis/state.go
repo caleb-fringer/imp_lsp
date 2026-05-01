@@ -24,6 +24,7 @@ type ServerState struct {
 	queryCursor       *tree_sitter.QueryCursor
 	diagnosticQueries []diagnosticQuery
 	logger            *log.Logger
+	language          *tree_sitter.Language
 }
 
 // Create a new State object
@@ -32,6 +33,8 @@ func NewState(logger *log.Logger) (*ServerState, error) {
 	language := tree_sitter.NewLanguage(tree_sitter_imp.Language())
 	err := parser.SetLanguage(language)
 	if err != nil {
+		// Cleanup on failure
+		parser.Close()
 		return nil, fmt.Errorf("Failed to set parser's language: %v", err)
 	}
 
@@ -43,6 +46,7 @@ func NewState(logger *log.Logger) (*ServerState, error) {
 		queryCursor:       queryCursor,
 		diagnosticQueries: make([]diagnosticQuery, 0),
 		logger:            logger,
+		language:          language,
 	}, nil
 }
 
