@@ -22,7 +22,7 @@ type ServerState struct {
 	documents         map[uri]*document
 	parser            *tree_sitter.Parser
 	queryCursor       *tree_sitter.QueryCursor
-	diagnosticQueries []diagnosticQuery
+	diagnosticQueries []DiagnosticQuery
 	logger            *log.Logger
 	language          *tree_sitter.Language
 }
@@ -44,7 +44,7 @@ func NewState(logger *log.Logger) (*ServerState, error) {
 		documents:         make(map[uri]*document),
 		parser:            parser,
 		queryCursor:       queryCursor,
-		diagnosticQueries: make([]diagnosticQuery, 0),
+		diagnosticQueries: make([]DiagnosticQuery, 0),
 		logger:            logger,
 		language:          language,
 	}, nil
