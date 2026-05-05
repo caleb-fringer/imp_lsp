@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/caleb-fringer/imp_lsp/internal/lsp"
@@ -8,17 +9,22 @@ import (
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
+type AnalysisContext struct {
+	QueryCursor *tree_sitter.QueryCursor
+	Root        *tree_sitter.Node
+	DocumentSrc []byte
+}
+
 const DiagnosticSource = "imp_lsp"
 
-// An abstraction over tree_sitter queries which generate diagnostics.
-// A DiagnosticQuery may consist of many subqueries, but these are
-// abstracted away to make collecting diagnostics easy.
-type DiagnosticQuery interface {
+// An abstraction over tree_sitter queries/walkers which generate diagnostics.
+// A DiagnosticsProvider may use an AST walker or a series of queries to
+// created diagnostics, but the implementation is abstracted into an
+// AnalysisContext.
+type DiagnosticsProvider interface {
 	GetName() string
 	Construct() error
-	Execute(cursor *tree_sitter.QueryCursor,
-		root *tree_sitter.Node,
-		documentSrc []byte) error
+	Execute(ctx AnalysisContext) error
 	GetDiagnostics() []lsp.Diagnostic
 	Close()
 }
@@ -66,10 +72,17 @@ func (q *unusedVariableQuery) Construct() error {
 }
 
 // Recomputes the unused identifiers, replacing the previous map with the new one.
-func (q *unusedVariableQuery) Execute(
-	cursor *tree_sitter.QueryCursor,
-	root *tree_sitter.Node,
-	documentSrc []byte) error {
+func (q *unusedVariableQuery) Execute(ctx AnalysisContext) error {
+	cursor := ctx.QueryCursor
+	root := ctx.Root
+	documentSrc := ctx.DocumentSrc
+	if cursor == nil {
+		return errors.New("Error executing DiagnosticQuery: provided ctx.QueryCursor is nil!")
+	}
+	if root == nil {
+		return errors.New("Error executing DiagnosticQuery: provided ctx.Root is nil!")
+	}
+
 	declarationsQuery_matches := cursor.Matches(q.declarationsQuery, root, documentSrc)
 
 	unusedIdentifiers := make(map[Identifier]tree_sitter.Node)
@@ -143,16 +156,28 @@ func (q *unexpectedTokenQuery) Construct() error {
 	return nil
 }
 
-func (q *unexpectedTokenQuery) Execute(
-	cursor *tree_sitter.QueryCursor,
-	root *tree_sitter.Node,
-	documentSrc []byte) error {
+func (q *unexpectedTokenQuery) Execute(ctx AnalysisContext) error {
+	cursor := ctx.QueryCursor
+	root := ctx.Root
+	documentSrc := ctx.DocumentSrc
+	if cursor == nil {
+		return errors.New("Error executing DiagnosticQuery: provided ctx.QueryCursor is nil!")
+	}
+	if root == nil {
+		return errors.New("Error executing DiagnosticQuery: provided ctx.Root is nil!")
+	}
+
 	// Local storage for errors
 	errorLocations := make([]tree_sitter.Range, 0)
 
 	matches := cursor.Matches(q.query, root, documentSrc)
 	for match := matches.Next(); match != nil; match = matches.Next() {
-		errorRange := match.Captures[0].Node.Range()
+		errorNode := match.Captures[0].Node
+		// Attempt to only capture the outermost error node.
+		if errorNode.Parent().IsError() {
+			continue
+		}
+		errorRange := errorNode.Range()
 		errorLocations = append(errorLocations, errorRange)
 	}
 	// Need to overwrite to clear previous errors
@@ -192,7 +217,12 @@ func (s *ServerState) collectDiagnostics(documentUri uri) ([]lsp.Diagnostic, err
 		// TODO: Maybe this should be handled by server.Close()?
 		defer query.Close()
 
-		err = query.Execute(s.queryCursor, document.tree.RootNode(), []byte(document.Text))
+		ctx := AnalysisContext{
+			QueryCursor: s.queryCursor,
+			Root:        document.tree.RootNode(),
+			DocumentSrc: []byte(document.Text),
+		}
+		err = query.Execute(ctx)
 		if err != nil {
 			s.logger.Printf("Error executing query %v: %v\n", query.GetName(), err)
 			continue

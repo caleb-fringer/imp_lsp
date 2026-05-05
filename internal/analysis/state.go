@@ -22,7 +22,7 @@ type ServerState struct {
 	documents         map[uri]*document
 	parser            *tree_sitter.Parser
 	queryCursor       *tree_sitter.QueryCursor
-	diagnosticQueries []DiagnosticQuery
+	diagnosticQueries []DiagnosticsProvider
 	logger            *log.Logger
 	language          *tree_sitter.Language
 }
@@ -44,7 +44,7 @@ func NewState(logger *log.Logger) (*ServerState, error) {
 	unusedVarsQuery := NewUnusedVariableQuery(language)
 	unexpectedTokenQuery := NewUnexpectedTokenQuery(language)
 
-	diagnosticQueries := []DiagnosticQuery{
+	diagnosticQueries := []DiagnosticsProvider{
 		unusedVarsQuery,
 		unexpectedTokenQuery,
 	}
