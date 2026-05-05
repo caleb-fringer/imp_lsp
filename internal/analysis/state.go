@@ -43,10 +43,12 @@ func NewState(logger *log.Logger) (*ServerState, error) {
 	// Register each DiagnosticQuery
 	unusedVarsQuery := NewUnusedIdentifierProvider(language)
 	unexpectedTokenQuery := NewUnexpectedTokenProvider(language)
+	missingNodeProvider := NewMissingNodeProvider(language)
 
 	diagnosticQueries := []DiagnosticsProvider{
 		unusedVarsQuery,
 		unexpectedTokenQuery,
+		missingNodeProvider,
 	}
 
 	return &ServerState{
