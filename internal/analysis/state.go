@@ -41,13 +41,13 @@ func NewState(logger *log.Logger) (*ServerState, error) {
 	queryCursor := tree_sitter.NewQueryCursor()
 
 	// Register each DiagnosticQuery
-	unusedVarsQuery := NewUnusedIdentifierProvider(language)
-	unexpectedTokenQuery := NewUnexpectedTokenProvider(language)
+	identifierDiagnosticsProvider := NewIdentifierDiagnosticsProvider(language)
+	unexpectedTokenProvider := NewUnexpectedTokenProvider(language)
 	missingNodeProvider := NewMissingNodeProvider(language)
 
 	diagnosticQueries := []DiagnosticsProvider{
-		unusedVarsQuery,
-		unexpectedTokenQuery,
+		identifierDiagnosticsProvider,
+		unexpectedTokenProvider,
 		missingNodeProvider,
 	}
 

@@ -25,6 +25,7 @@ type Code int
 
 const (
 	UnusedIdentifier Code = iota
+	UndeclaredIdentifier
 	UnexpectedToken
 	MissingNode
 )
