@@ -40,8 +40,14 @@ func NewState(logger *log.Logger) (*ServerState, error) {
 
 	queryCursor := tree_sitter.NewQueryCursor()
 
+	// Register each DiagnosticQuery
 	unusedVarsQuery := NewUnusedVariableQuery(language)
-	diagnosticQueries := []DiagnosticQuery{unusedVarsQuery}
+	unexpectedTokenQuery := NewUnexpectedTokenQuery(language)
+
+	diagnosticQueries := []DiagnosticQuery{
+		unusedVarsQuery,
+		unexpectedTokenQuery,
+	}
 
 	return &ServerState{
 		documents:         make(map[uri]*document),
