@@ -41,8 +41,8 @@ func NewState(logger *log.Logger) (*ServerState, error) {
 	queryCursor := tree_sitter.NewQueryCursor()
 
 	// Register each DiagnosticQuery
-	unusedVarsQuery := NewUnusedVariableQuery(language)
-	unexpectedTokenQuery := NewUnexpectedTokenQuery(language)
+	unusedVarsQuery := NewUnusedIdentifierProvider(language)
+	unexpectedTokenQuery := NewUnexpectedTokenProvider(language)
 
 	diagnosticQueries := []DiagnosticsProvider{
 		unusedVarsQuery,
@@ -149,4 +149,35 @@ func (s *ServerState) EditDocument(changeEvent *lsp.DidChangeTextDocumentNotific
 	diagnostics, err = s.collectDiagnostics(uri(doc.URI))
 
 	return diagnostics, nil
+}
+
+func (s *ServerState) collectDiagnostics(documentUri uri) ([]lsp.Diagnostic, error) {
+	document := s.documents[documentUri]
+	result := make([]lsp.Diagnostic, 0)
+	for _, query := range s.diagnosticQueries {
+		err := query.Construct()
+		if err != nil {
+			s.logger.Printf("Error constructing query %v: %v\n", query.GetName(), err)
+			continue
+		}
+		// TODO: Maybe this should be handled by server.Close()?
+		defer query.Close()
+
+		ctx := AnalysisContext{
+			QueryCursor: s.queryCursor,
+			Root:        document.tree.RootNode(),
+			DocumentSrc: []byte(document.Text),
+		}
+		err = query.Execute(ctx)
+		if err != nil {
+			s.logger.Printf("Error executing query %v: %v\n", query.GetName(), err)
+			continue
+		}
+
+		// If the query executed successfully, I think this should be fine to
+		// not return an error
+		diagnostics := query.GetDiagnostics()
+		result = append(result, diagnostics...)
+	}
+	return result, nil
 }
