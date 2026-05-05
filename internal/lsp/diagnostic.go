@@ -3,7 +3,7 @@ package lsp
 type Diagnostic struct {
 	Range              Range                          `json:"range"`
 	Severity           DiagnosticSeverity             `json:"severity"`
-	Code               *int                           `json:"code"`
+	Code               *Code                          `json:"code"`
 	CodeDescription    *CodeDescription               `json:"codeDescription"`
 	Source             string                         `json:"source"`
 	Message            string                         `json:"message"`
@@ -19,6 +19,12 @@ const (
 	Warning
 	Information
 	Hint
+)
+
+type Code int
+
+const (
+	UnusedIdentifier Code = 1
 )
 
 type CodeDescription struct {
