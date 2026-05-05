@@ -24,7 +24,8 @@ const (
 type Code int
 
 const (
-	UnusedIdentifier Code = 1
+	UnusedIdentifier Code = iota
+	UnexpectedToken
 )
 
 type CodeDescription struct {
