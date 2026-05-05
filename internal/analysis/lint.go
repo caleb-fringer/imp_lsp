@@ -66,7 +66,10 @@ func (q *unusedVariableQuery) Construct() error {
 }
 
 // Recomputes the unused identifiers, replacing the previous map with the new one.
-func (q *unusedVariableQuery) Execute(cursor *tree_sitter.QueryCursor, root *tree_sitter.Node, documentSrc []byte) error {
+func (q *unusedVariableQuery) Execute(
+	cursor *tree_sitter.QueryCursor,
+	root *tree_sitter.Node,
+	documentSrc []byte) error {
 	declarationsQuery_matches := cursor.Matches(q.declarationsQuery, root, documentSrc)
 
 	unusedIdentifiers := make(map[Identifier]tree_sitter.Node)
@@ -108,6 +111,73 @@ func (q *unusedVariableQuery) GetDiagnostics() []lsp.Diagnostic {
 func (q *unusedVariableQuery) Close() {
 	q.declarationsQuery.Close()
 	q.usageQuery.Close()
+}
+
+type unexpectedTokenQuery struct {
+	language       *tree_sitter.Language
+	query          *tree_sitter.Query
+	querySrc       string
+	diagnosticCode lsp.Code
+	errorLocations []tree_sitter.Range
+}
+
+func NewUnexpectedTokenQuery(language *tree_sitter.Language) *unexpectedTokenQuery {
+	return &unexpectedTokenQuery{
+		language:       language,
+		querySrc:       `(ERROR) @error-node`,
+		diagnosticCode: lsp.UnexpectedToken,
+		errorLocations: make([]tree_sitter.Range, 0),
+	}
+}
+
+func (q *unexpectedTokenQuery) GetName() string {
+	return "Unexpected Token"
+}
+
+func (q *unexpectedTokenQuery) Construct() error {
+	query, err := tree_sitter.NewQuery(q.language, q.querySrc)
+	if err != nil {
+		return nil
+	}
+	q.query = query
+	return nil
+}
+
+func (q *unexpectedTokenQuery) Execute(
+	cursor *tree_sitter.QueryCursor,
+	root *tree_sitter.Node,
+	documentSrc []byte) error {
+	// Local storage for errors
+	errorLocations := make([]tree_sitter.Range, 0)
+
+	matches := cursor.Matches(q.query, root, documentSrc)
+	for match := matches.Next(); match != nil; match = matches.Next() {
+		errorRange := match.Captures[0].Node.Range()
+		errorLocations = append(errorLocations, errorRange)
+	}
+	// Need to overwrite to clear previous errors
+	q.errorLocations = errorLocations
+	return nil
+}
+
+func (q *unexpectedTokenQuery) GetDiagnostics() []lsp.Diagnostic {
+	n := len(q.errorLocations)
+	diagnostics := make([]lsp.Diagnostic, n)
+	for i, loc := range q.errorLocations {
+		tokenRange := utils.RangeFromTS(loc)
+		diagnostics[i] = lsp.Diagnostic{
+			Range:    tokenRange,
+			Severity: lsp.Error,
+			Code:     &q.diagnosticCode,
+			Source:   DiagnosticSource,
+			Message:  "Unexpected token",
+		}
+	}
+	return diagnostics
+}
+
+func (q *unexpectedTokenQuery) Close() {
+	q.query.Close()
 }
 
 func (s *ServerState) collectDiagnostics(documentUri uri) ([]lsp.Diagnostic, error) {
