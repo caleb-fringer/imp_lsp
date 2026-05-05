@@ -4,9 +4,11 @@ import (
 	"fmt"
 
 	"github.com/caleb-fringer/imp_lsp/internal/lsp"
-	tree_sitter_imp "github.com/caleb-fringer/tree-sitter-imp/bindings/go"
+	"github.com/caleb-fringer/imp_lsp/internal/utils"
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
 )
+
+const DiagnosticSource = "imp_lsp"
 
 // An abstraction over tree_sitter queries which generate diagnostics.
 // A DiagnosticQuery may consist of many subqueries, but these are
@@ -14,16 +16,23 @@ import (
 type DiagnosticQuery interface {
 	GetName() string
 	Construct() error
-	Execute(cursor *tree_sitter.QueryCursor) error
+	Execute(cursor *tree_sitter.QueryCursor,
+		root *tree_sitter.Node,
+		documentSrc []byte) error
 	GetDiagnostics() []lsp.Diagnostic
 	Close()
 }
 
+type Identifier string
+
 type unusedVariableQuery struct {
 	language             *tree_sitter.Language
 	declarationsQuery    *tree_sitter.Query
-	identifiersQuery     []*tree_sitter.Query
+	usageQuery           *tree_sitter.Query
 	declarationsQuerySrc string
+	usageQuerySrc        string
+	unusedIdentifiers    map[Identifier]tree_sitter.Node
+	diagnosticCode       lsp.Code
 }
 
 func NewUnusedVariableQuery(language *tree_sitter.Language) *unusedVariableQuery {
@@ -32,6 +41,8 @@ func NewUnusedVariableQuery(language *tree_sitter.Language) *unusedVariableQuery
 		declarationsQuerySrc: `(assignment 
 			id: (identifier) @id 
 			val: [(integer) (boolean)] @val)`,
+		usageQuerySrc:  `(expression/identifier) @id`,
+		diagnosticCode: lsp.UnusedIdentifier,
 	}
 }
 
@@ -45,11 +56,63 @@ func (q *unusedVariableQuery) Construct() error {
 		return err
 	}
 	q.declarationsQuery = declarationsQuery
+
+	usageQuery, err := tree_sitter.NewQuery(q.language, q.usageQuerySrc)
+	if err != nil {
+		return err
+	}
+	q.usageQuery = usageQuery
 	return nil
 }
 
-func (s *ServerState) collectDiagnostics(document uri) ([]lsp.Diagnostic, error) {
-	var result []lsp.Diagnostic
+// Recomputes the unused identifiers, replacing the previous map with the new one.
+func (q *unusedVariableQuery) Execute(cursor *tree_sitter.QueryCursor, root *tree_sitter.Node, documentSrc []byte) error {
+	declarationsQuery_matches := cursor.Matches(q.declarationsQuery, root, documentSrc)
+
+	unusedIdentifiers := make(map[Identifier]tree_sitter.Node)
+	for match := declarationsQuery_matches.Next(); match != nil; match = declarationsQuery_matches.Next() {
+		id_node := match.Captures[0].Node
+		id := id_node.Utf8Text(documentSrc)
+		val := match.Captures[1].Node.Utf8Text(documentSrc)
+		fmt.Printf("Identifer: %v, value: %v\n", id, val)
+		unusedIdentifiers[Identifier(id)] = id_node
+	}
+
+	// Iterate over usages, deleting them from the unsued_identifiers map.
+	usageQuery_matches := cursor.Matches(q.usageQuery, root, documentSrc)
+	for match := usageQuery_matches.Next(); match != nil; match = usageQuery_matches.Next() {
+		id := match.Captures[0].Node.Utf8Text(documentSrc)
+		delete(unusedIdentifiers, Identifier(id))
+	}
+
+	q.unusedIdentifiers = unusedIdentifiers
+	return nil
+}
+
+func (q *unusedVariableQuery) GetDiagnostics() []lsp.Diagnostic {
+	diagnostics := make([]lsp.Diagnostic, len(q.unusedIdentifiers))
+	i := 0
+	for identifier, node := range q.unusedIdentifiers {
+		diagnostics[i] = lsp.Diagnostic{
+			Range:    utils.RangeFromTS(node.Range()),
+			Severity: lsp.Warning,
+			Code:     &q.diagnosticCode,
+			Source:   DiagnosticSource,
+			Message:  fmt.Sprintf("%s is declared but not used", identifier),
+		}
+		i++
+	}
+	return diagnostics
+}
+
+func (q *unusedVariableQuery) Close() {
+	q.declarationsQuery.Close()
+	q.usageQuery.Close()
+}
+
+func (s *ServerState) collectDiagnostics(documentUri uri) ([]lsp.Diagnostic, error) {
+	document := s.documents[documentUri]
+	result := make([]lsp.Diagnostic, 0)
 	for _, query := range s.diagnosticQueries {
 		err := query.Construct()
 		if err != nil {
@@ -59,7 +122,7 @@ func (s *ServerState) collectDiagnostics(document uri) ([]lsp.Diagnostic, error)
 		// TODO: Maybe this should be handled by server.Close()?
 		defer query.Close()
 
-		err = query.Execute(s.queryCursor)
+		err = query.Execute(s.queryCursor, document.tree.RootNode(), []byte(document.Text))
 		if err != nil {
 			s.logger.Printf("Error executing query %v: %v\n", query.GetName(), err)
 			continue
@@ -71,44 +134,4 @@ func (s *ServerState) collectDiagnostics(document uri) ([]lsp.Diagnostic, error)
 		result = append(result, diagnostics...)
 	}
 	return result, nil
-}
-
-type Identifier string
-
-func unusedVariables(root *tree_sitter.Tree, sourceCode []byte) (map[Identifier]tree_sitter.Node, error) {
-	declarations_query, err := tree_sitter.NewQuery(
-		tree_sitter.NewLanguage(tree_sitter_imp.Language()),
-		`(assignment 
-			id: (identifier) @id 
-			val: [(integer) (boolean)] @val)`)
-
-	if err != nil {
-		return nil, fmt.Errorf("Error constructing variables query: %v", err)
-	}
-	defer declarations_query.Close()
-
-	cursor := tree_sitter.NewQueryCursor()
-	defer cursor.Close()
-
-	query_matches := cursor.Matches(declarations_query, root.RootNode(), sourceCode)
-
-	unused_identifiers := make(map[Identifier]tree_sitter.Node)
-	for match := query_matches.Next(); match != nil; match = query_matches.Next() {
-		id_node := match.Captures[0].Node
-		id := id_node.Utf8Text(sourceCode)
-		val := match.Captures[1].Node.Utf8Text(sourceCode)
-		fmt.Printf("Identifer: %v, value: %v\n", id, val)
-		unused_identifiers[Identifier(id)] = id_node
-	}
-
-	references_query, err := tree_sitter.NewQuery(
-		tree_sitter.NewLanguage(tree_sitter_imp.Language()),
-		`(expression/identifier) @id`)
-
-	query_matches = cursor.Matches(references_query, root.RootNode(), sourceCode)
-	for match := query_matches.Next(); match != nil; match = query_matches.Next() {
-		id := match.Captures[0].Node.Utf8Text(sourceCode)
-		delete(unused_identifiers, Identifier(id))
-	}
-	return unused_identifiers, nil
 }

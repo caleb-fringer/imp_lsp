@@ -83,28 +83,12 @@ func handleMessage(logger *log.Logger, method string, contents []byte, state *an
 		}
 		logger.Printf("Opened: %s\n", notification.Params.TextDocument.URI)
 		// Parse the document
-		_, err = state.OpenDocument(&notification.Params.TextDocument)
+		diagnostics, err := state.OpenDocument(&notification.Params.TextDocument)
 		if err != nil {
 			logger.Printf("Error opening document: %v\n", err)
 		}
 
-		// Create a DUMMY diagnostic for testing
-		diagnostic := lsp.Diagnostic{
-			Range: lsp.Range{
-				Start: lsp.Position{
-					Line:      0,
-					Character: 0,
-				},
-				End: lsp.Position{
-					Line:      0,
-					Character: 1,
-				},
-			},
-			Severity: lsp.Information,
-			Source:   "imp_lsp",
-			Message:  "Good Job! :)",
-		}
-		diagnosticsNotification := lsp.NewPublishDiagnosticsNotification([]lsp.Diagnostic{diagnostic}, notification.Params.TextDocument.URI, 1)
+		diagnosticsNotification := lsp.NewPublishDiagnosticsNotification(diagnostics, notification.Params.TextDocument.URI, 1)
 		response := rpc.EncodeMessage(diagnosticsNotification)
 		logger.Printf("Writing the following diagnostics:\n\t%v\n", notification)
 		os.Stdout.WriteString(response)
@@ -118,10 +102,14 @@ func handleMessage(logger *log.Logger, method string, contents []byte, state *an
 			return
 		}
 		logger.Printf("Edited: %s\n", notification.Params.TextDocument.URI)
-		_, err = state.EditDocument(&notification)
+		diagnostics, err := state.EditDocument(&notification)
 		if err != nil {
 			logger.Printf("Error editing document: %v\n", err)
 		}
-		// TODO: Run new diagnostics...
+
+		diagnosticsNotification := lsp.NewPublishDiagnosticsNotification(diagnostics, notification.Params.TextDocument.URI, 1)
+		response := rpc.EncodeMessage(diagnosticsNotification)
+		logger.Printf("Writing the following diagnostics:\n\t%v\n", notification)
+		os.Stdout.WriteString(response)
 	}
 }

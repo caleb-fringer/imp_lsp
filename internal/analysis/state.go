@@ -40,11 +40,14 @@ func NewState(logger *log.Logger) (*ServerState, error) {
 
 	queryCursor := tree_sitter.NewQueryCursor()
 
+	unusedVarsQuery := NewUnusedVariableQuery(language)
+	diagnosticQueries := []DiagnosticQuery{unusedVarsQuery}
+
 	return &ServerState{
 		documents:         make(map[uri]*document),
 		parser:            parser,
 		queryCursor:       queryCursor,
-		diagnosticQueries: make([]DiagnosticQuery, 0),
+		diagnosticQueries: diagnosticQueries,
 		logger:            logger,
 		language:          language,
 	}, nil
@@ -79,6 +82,10 @@ func (s *ServerState) OpenDocument(textDocItem *lsp.TextDocumentItem) (diagnosti
 	s.documents[uri(textDocItem.URI)] = &document{
 		textDocItem,
 		s.parser.Parse([]byte(textDocItem.Text), nil),
+	}
+	diagnostics, err = s.collectDiagnostics(uri(textDocItem.URI))
+	if err != nil {
+		return nil, fmt.Errorf("Error collecting diagnostics: %v", err)
 	}
 	return diagnostics, nil
 }
