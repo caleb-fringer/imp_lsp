@@ -2,18 +2,23 @@ package analysis
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/caleb-fringer/imp_lsp/internal/lsp"
 	"github.com/caleb-fringer/imp_lsp/internal/utils"
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
+type syntaxError struct {
+	node  *tree_sitter.Node
+	token string
+}
 type unexpectedTokenProvider struct {
 	language       *tree_sitter.Language
 	query          *tree_sitter.Query
 	querySrc       string
 	diagnosticCode lsp.Code
-	errorLocations []tree_sitter.Range
+	syntaxErrors   []syntaxError
 }
 
 func NewUnexpectedTokenProvider(language *tree_sitter.Language) *unexpectedTokenProvider {
@@ -21,7 +26,7 @@ func NewUnexpectedTokenProvider(language *tree_sitter.Language) *unexpectedToken
 		language:       language,
 		querySrc:       `(ERROR) @error-node`,
 		diagnosticCode: lsp.UnexpectedToken,
-		errorLocations: make([]tree_sitter.Range, 0),
+		syntaxErrors:   make([]syntaxError, 0),
 	}
 }
 
@@ -50,7 +55,7 @@ func (p *unexpectedTokenProvider) Execute(ctx AnalysisContext) error {
 	}
 
 	// Local storage for errors
-	errorLocations := make([]tree_sitter.Range, 0)
+	syntaxErrors := make([]syntaxError, 0)
 
 	matches := cursor.Matches(p.query, root, documentSrc)
 	for match := matches.Next(); match != nil; match = matches.Next() {
@@ -59,25 +64,32 @@ func (p *unexpectedTokenProvider) Execute(ctx AnalysisContext) error {
 		if errorNode.Parent().IsError() {
 			continue
 		}
-		errorRange := errorNode.Range()
-		errorLocations = append(errorLocations, errorRange)
+		token := errorNode.Utf8Text(documentSrc)
+		syntaxError := syntaxError{
+			node:  &errorNode,
+			token: token,
+		}
+		syntaxErrors = append(syntaxErrors, syntaxError)
 	}
 	// Need to overwrite to clear previous errors
-	p.errorLocations = errorLocations
+	p.syntaxErrors = syntaxErrors
 	return nil
 }
 
 func (p *unexpectedTokenProvider) GetDiagnostics() []lsp.Diagnostic {
-	n := len(p.errorLocations)
+	n := len(p.syntaxErrors)
 	diagnostics := make([]lsp.Diagnostic, n)
-	for i, loc := range p.errorLocations {
-		tokenRange := utils.RangeFromTS(loc)
+	for i, e := range p.syntaxErrors {
+		node := e.node
+		token := e.token
+
+		tokenRange := utils.RangeFromTS(node.Range())
 		diagnostics[i] = lsp.Diagnostic{
 			Range:    tokenRange,
 			Severity: lsp.Error,
 			Code:     &p.diagnosticCode,
 			Source:   DiagnosticSource,
-			Message:  "Unexpected token",
+			Message:  fmt.Sprintf("Unexpected token `%s`", token),
 		}
 	}
 	return diagnostics
