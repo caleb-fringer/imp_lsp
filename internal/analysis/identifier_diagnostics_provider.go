@@ -28,10 +28,13 @@ func NewIdentifierDiagnosticsProvider(
 ) *identifierDiagnosticsProvider {
 	return &identifierDiagnosticsProvider{
 		language: language,
-		declarationsQuerySrc: `(assignment 
+		declarationsQuerySrc: `(declaration 
 			id: (identifier) @id 
 			val: [(integer) (boolean)] @val)`,
-		usageQuerySrc:            `(expression/identifier) @id`,
+		usageQuerySrc: `[
+			(expression/identifier) @id 
+			(assignment id: (identifier) @id)
+		]`,
 		unusedIdentifierCode:     lsp.UnusedIdentifier,
 		undeclaredIdentifierCode: lsp.UndeclaredIdentifier,
 	}
