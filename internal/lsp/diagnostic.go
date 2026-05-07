@@ -2,14 +2,14 @@ package lsp
 
 type Diagnostic struct {
 	Range              Range                          `json:"range"`
-	Severity           DiagnosticSeverity             `json:"severity"`
-	Code               *Code                          `json:"code"`
-	CodeDescription    *CodeDescription               `json:"codeDescription"`
-	Source             string                         `json:"source"`
+	Severity           DiagnosticSeverity             `json:"severity,omitempty"`
+	Code               *Code                          `json:"code,omitempty"`
+	CodeDescription    *CodeDescription               `json:"codeDescription,omitempty"`
+	Source             string                         `json:"source,omitempty"`
 	Message            string                         `json:"message"`
-	Tags               []DiagnosticTag                `json:"tags"`
-	RelatedInformation []DiagnosticRelatedInformation `json:"relatedInformation"`
-	Data               any                            `json:"data"`
+	Tags               []DiagnosticTag                `json:"tags,omitempty"`
+	RelatedInformation []DiagnosticRelatedInformation `json:"relatedInformation,omitempty"`
+	Data               any                            `json:"data,omitempty"`
 }
 
 type DiagnosticSeverity uint
