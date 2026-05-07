@@ -12,7 +12,7 @@ type InitializeRequestParams struct {
 
 type ClientInfo struct {
 	Name    string `json:"name"`
-	Version string `json:"version"`
+	Version string `json:"version,omitempty"`
 }
 
 type ClientCapabilities struct {
@@ -63,7 +63,7 @@ type InitializeResponse struct {
 
 type InitializeResult struct {
 	Capabilities ServerCapabilities `json:"capabilities"`
-	ServerInfo   ServerInfo         `json:"serverInfo"`
+	ServerInfo   *ServerInfo        `json:"serverInfo,omitempty"`
 }
 
 type ServerCapabilities struct {
@@ -82,7 +82,7 @@ const (
 
 type ServerInfo struct {
 	Name    string `json:"name"`
-	Version string `json:"version"`
+	Version string `json:"version,omitempty"`
 }
 
 func NewInitializeResponse(id int, sync TextDocumentSyncKind) InitializeResponse {
@@ -103,7 +103,7 @@ func NewInitializeResponse(id int, sync TextDocumentSyncKind) InitializeResponse
 				PositionEncodingKind: &encoding,
 				TextDocumentSync:     &sync,
 			},
-			ServerInfo: ServerInfo{
+			ServerInfo: &ServerInfo{
 				Name:    "imp_lsp",
 				Version: "v0.0.1",
 			},

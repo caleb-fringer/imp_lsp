@@ -76,7 +76,7 @@ type PublishDiagnosticsParams struct {
 	 *
 	 * @since 3.15.0
 	 */
-	Version *int `json:"version"`
+	Version *int `json:"version,omitempty"`
 	/**
 	 * An array of diagnostic information items.
 	 */
